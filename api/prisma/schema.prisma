@@ -56,9 +56,9 @@ model User {
   isVerified Boolean      @default(false)
   createdAt  DateTime     @default(now())
 
-  createdActivities Activity[]     @relation("UserCreatedActivities") // กิจกรรมที่ User นี้สร้าง
-  joinRequests      JoinRequest[] // รายการที่ User นี้ไปขอจอยคนอื่น
-  reviews           Review[] // รีวิวที่ User นี้เขียน
+  createdActivities Activity[]     @relation("UserCreatedActivities") 
+  joinRequests      JoinRequest[] 
+  reviews           Review[] 
   visitedPlaces     VisitedPlace[]
   messages          Message[]
 
@@ -73,15 +73,17 @@ model Activity {
   description     String
   maxParticipants Int
   status          ActivityStatus   @default(OPEN)
-  eventDate       DateTime
+  eventStartDate  DateTime
+  eventEndDate    DateTime
+  isPublic        Boolean          @default(true)
   createdAt       DateTime         @default(now())
 
   hostId       Int
   host         User          @relation("UserCreatedActivities", fields: [hostId], references: [id])
   placeId      Int?
   place        Place?        @relation(fields: [placeId], references: [id])
-  joinRequests JoinRequest[] // คนที่ขอเข้าร่วมกิจกรรมนี้
-  reviews      Review[] // รีวิวที่เกิดในกิจกรรมนี้
+  joinRequests JoinRequest[] 
+  reviews      Review[] 
   chatGroup    ChatGroup?
 }
 
@@ -147,24 +149,20 @@ model ChatGroup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // เชื่อมกับ Activity (1 กิจกรรม มี 1 ห้องแชท)
   activityId Int      @unique
   activity   Activity @relation(fields: [activityId], references: [id])
 
-  // ในห้องแชทมีหลายข้อความ
   messages Message[]
 }
 
 model Message {
   id        Int      @id @default(autoincrement())
-  content   String // เนื้อหาข้อความ
+  content   String 
   createdAt DateTime @default(now())
 
-  // ใครเป็นคนส่ง
   senderId Int
   sender   User @relation(fields: [senderId], references: [id])
 
-  // ส่งที่ห้องไหน
   chatGroupId Int
   chatGroup   ChatGroup @relation(fields: [chatGroupId], references: [id])
 }
