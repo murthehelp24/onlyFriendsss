@@ -1,11 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -50,17 +46,25 @@ model User {
   firstName  String
   lastName   String
   email      String       @unique
+  password   String
   gender     genderStatus
   profileImg String?
   bio        String?
-  isVerified Boolean      @default(false)
-  createdAt  DateTime     @default(now())
 
-  createdActivities Activity[]     @relation("UserCreatedActivities") 
-  joinRequests      JoinRequest[] 
-  reviews           Review[] 
+  // Face Verification 
+  isVerified     Boolean @default(false)
+  faceDescriptor String? @db.LongText
+
+  trustScore Int      @default(100)
+  createdAt  DateTime @default(now())
+
+  createdActivities Activity[]     @relation("UserCreatedActivities")
+  joinRequests      JoinRequest[]
+  reviewsGiven      Review[]       @relation("Reviewer")
+  reviewsReceived   Review[]       @relation("Receiver")
   visitedPlaces     VisitedPlace[]
   messages          Message[]
+  createdRoutes     Route[]
 
   sentFriendRequests     FriendShip[] @relation("SentFriendRequests")
   receivedFriendRequests FriendShip[] @relation("ReceivedFriendRequests")
@@ -70,7 +74,7 @@ model Activity {
   id              Int              @id @default(autoincrement())
   category        ActivityCategory
   title           String
-  description     String
+  description     String           @db.Text
   maxParticipants Int
   status          ActivityStatus   @default(OPEN)
   eventStartDate  DateTime
@@ -78,12 +82,14 @@ model Activity {
   isPublic        Boolean          @default(true)
   createdAt       DateTime         @default(now())
 
-  hostId       Int
-  host         User          @relation("UserCreatedActivities", fields: [hostId], references: [id])
-  placeId      Int?
-  place        Place?        @relation(fields: [placeId], references: [id])
-  joinRequests JoinRequest[] 
-  reviews      Review[] 
+  hostId Int
+  host   User @relation("UserCreatedActivities", fields: [hostId], references: [id])
+
+  placeId Int?
+  place   Place? @relation(fields: [placeId], references: [id])
+
+  joinRequests JoinRequest[]
+  reviews      Review[]
   chatGroup    ChatGroup?
 }
 
@@ -96,30 +102,56 @@ model JoinRequest {
   user       User     @relation(fields: [userId], references: [id])
   activityId Int
   activity   Activity @relation(fields: [activityId], references: [id])
+
+  @@unique([userId, activityId])
 }
 
 model Place {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   placeName String
   latitude  Float
   longitude Float
-  address   String
+  address   String?
 
   visitedBy  VisitedPlace[]
   activities Activity[]
+  routeItems RouteItem[]
 }
 
 model Review {
   id        Int      @id @default(autoincrement())
   rating    Int
-  comment   String?
+  comment   String?  @db.Text
   imageUrl  String?
   createdAt DateTime @default(now())
 
-  userId     Int
-  user       User     @relation(fields: [userId], references: [id])
+  reviewerId Int
+  reviewer   User @relation("Reviewer", fields: [reviewerId], references: id)
+
+  receiverId Int?
+  receiver   User? @relation("Receiver", fields: [receiverId], references: id)
+
   activityId Int
   activity   Activity @relation(fields: [activityId], references: [id])
+}
+
+model Route {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  creatorId   Int
+  creator     User        @relation(fields: [creatorId], references: id)
+  items       RouteItem[]
+  createdAt   DateTime    @default(now())
+}
+
+model RouteItem {
+  id      Int   @id @default(autoincrement())
+  order   Int
+  routeId Int
+  route   Route @relation(fields: [routeId], references: id)
+  placeId Int
+  place   Place @relation(fields: [placeId], references: id)
 }
 
 model FriendShip {
@@ -128,41 +160,35 @@ model FriendShip {
   createdAt DateTime         @default(now())
 
   senderId   Int
-  sender     User @relation("SentFriendRequests", fields: [senderId], references: [id])
+  sender     User @relation("SentFriendRequests", fields: [senderId], references: id)
   receiverId Int
-  receiver   User @relation("ReceivedFriendRequests", fields: [receiverId], references: [id])
+  receiver   User @relation("ReceivedFriendRequests", fields: [receiverId], references: id)
 
-  @@unique([senderId, receiverId]) // กันส่งคำขอซ้ำ
+  @@unique([senderId, receiverId])
 }
 
 model VisitedPlace {
-  id Int @id @default(autoincrement())
-
+  id      Int      @id @default(autoincrement())
+  at      DateTime @default(now())
   userId  Int
-  user    User  @relation(fields: [userId], references: [id])
+  user    User     @relation(fields: [userId], references: id)
   placeId Int
-  place   Place @relation(fields: [placeId], references: [id])
+  place   Place    @relation(fields: [placeId], references: id)
 }
 
 model ChatGroup {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  activityId Int      @unique
-  activity   Activity @relation(fields: [activityId], references: [id])
-
-  messages Message[]
+  id         Int       @id @default(autoincrement())
+  activityId Int       @unique
+  activity   Activity  @relation(fields: [activityId], references: id)
+  messages   Message[]
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
-  content   String 
-  createdAt DateTime @default(now())
-
-  senderId Int
-  sender   User @relation(fields: [senderId], references: [id])
-
+  id          Int       @id @default(autoincrement())
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  senderId    Int
+  sender      User      @relation(fields: [senderId], references: id)
   chatGroupId Int
-  chatGroup   ChatGroup @relation(fields: [chatGroupId], references: [id])
+  chatGroup   ChatGroup @relation(fields: [chatGroupId], references: id)
 }
